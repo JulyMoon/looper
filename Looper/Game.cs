@@ -23,8 +23,8 @@ namespace Looper
                     case Shape.I: array = new[] { true, false, true, false }; break;
                     case Shape.L: array = new[] { true, true, false, false }; break;
                     case Shape.T: array = new[] { true, true, true, false }; break;
-                    case Shape.X: array = new[] { true, true, true, true }; break;
-                    default: array = new[] { false, false, false, false }; break;
+                    case Shape.X: return new[] { true, true, true, true };
+                    default: return new[] { false, false, false, false };
                 }
 
                 return array.Shift((int)rotation);
@@ -113,37 +113,40 @@ namespace Looper
 
             private void Populate(int startx, int starty, double maxfill)
             {
-                var currentGen = new List<int[]> {new[] {startx, starty}};
-                var nextGen = new List<int[]>();
-
-                while (currentGen.Count > 0)
+                do
                 {
-                    foreach (var point in currentGen)
+                    var currentGen = new List<int[]> { new[] { startx, starty } };
+                    var nextGen = new List<int[]>();
+
+                    while (currentGen.Count > 0)
                     {
-                        foreach (var direction in GetValidDirections(point[0], point[1]))
+                        foreach (var point in currentGen)
                         {
-                            var directionPoint = GetDirectionPoint(direction);
-                            int nx = point[0] + directionPoint[0];
-                            int ny = point[1] + directionPoint[1];
-
-                            if (level[nx, ny][(int)GetShiftedRotation(direction, 2)])
+                            foreach (var direction in GetValidDirections(point[0], point[1]))
                             {
-                                level[point[0], point[1]][(int)direction] = true;
-                                continue;
-                            }
+                                var directionPoint = GetDirectionPoint(direction);
+                                int nx = point[0] + directionPoint[0];
+                                int ny = point[1] + directionPoint[1];
 
-                            if (GetFillPercentage() < maxfill && Random(0.5))
-                            {
-                                level[point[0], point[1]][(int)direction] = true;
-                                
-                                nextGen.Add(new[] { point[0] + directionPoint[0], point[1] + directionPoint[1] });
+                                if (level[nx, ny][(int)GetShiftedRotation(direction, 2)])
+                                {
+                                    level[point[0], point[1]][(int)direction] = true;
+                                    continue;
+                                }
+
+                                if (GetFillPercentage() < maxfill && Random(0.5))
+                                {
+                                    level[point[0], point[1]][(int)direction] = true;
+
+                                    nextGen.Add(new[] { point[0] + directionPoint[0], point[1] + directionPoint[1] });
+                                }
                             }
                         }
-                    }
 
-                    currentGen = nextGen.Clone();
-                    nextGen.Clear();
-                }
+                        currentGen = nextGen.Clone();
+                        nextGen.Clear();
+                    }
+                } while (level[startx, starty].SequenceEqual(GetItemArray()));
             }
 
             public void GetRandomLevel(out int width_, out int height_, out Shape[,] shapes, out Rotation[,] solution)
@@ -250,14 +253,6 @@ namespace Looper
 
         public bool IsSolved()
         {
-            /*for (int x = 0; x < Width; x++)
-                for (int y = 0; y < Height; y++)
-                    if (shapes[x, y] != Shape.None)
-                        if (!Equals(shapes[x, y], rotations[x, y], solution[x, y]))
-                            return false;
-
-            return true;*/
-
             for (int x = 0; x < Width; x++)
                 for (int y = 0; y < Height; y++)
                     if (!IsSmooth(x, y))
@@ -297,7 +292,7 @@ namespace Looper
         {
             levelUtil.GetRandomLevel(out Width, out Height, out shapes, out solution);
             rotations = (Rotation[,])solution.Clone();
-            Shuffle();
+            //Shuffle();
         }
 
         private void Shuffle()

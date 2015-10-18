@@ -1,2 +1,2 @@
-# looper
-a time killer game
+# Looper
+a simple time killer game
