@@ -58,18 +58,6 @@ namespace Looper
                 return (Rotation)(((int)r + shift) % 4);
             }
 
-            private static Rotation GetRandomRotationExcept(params Rotation[] except)
-            {
-                //if (except.Length > 3)
-                //    throw new ArgumentException("You're causing infinite loop");
-
-                var rotation = (Rotation)random.Next(4 - except.Length);
-                while (except.Contains(rotation))
-                    rotation = GetShiftedRotation(rotation, 1);
-
-                return rotation;
-            }
-
             private void GetRandomBorderCoordinates(out int x, out int y)
             {
                 if (random.Next(2) == 0)
@@ -117,28 +105,33 @@ namespace Looper
                 {
                     var currentGen = new List<int[]> { new[] { startx, starty } };
                     var nextGen = new List<int[]>();
+                    var populated = new List<int[]>();
 
                     while (currentGen.Count > 0)
                     {
                         foreach (var point in currentGen)
                         {
+                            if (populated.ContainsArray(point))
+                                continue;
+
+                            populated.Add(point);
+
                             foreach (var direction in GetValidDirections(point[0], point[1]))
                             {
-                                var directionPoint = GetDirectionPoint(direction);
-                                int nx = point[0] + directionPoint[0];
-                                int ny = point[1] + directionPoint[1];
-
-                                if (level[nx, ny][(int)GetShiftedRotation(direction, 2)])
-                                {
-                                    level[point[0], point[1]][(int)direction] = true;
+                                if (level[point[0], point[1]][(int)direction])
                                     continue;
-                                }
 
                                 if (GetFillPercentage() < maxfill && Random(0.5))
                                 {
+                                    var directionPoint = GetDirectionPoint(direction);
+                                    int nx = point[0] + directionPoint[0];
+                                    int ny = point[1] + directionPoint[1];
+
                                     level[point[0], point[1]][(int)direction] = true;
 
-                                    nextGen.Add(new[] { point[0] + directionPoint[0], point[1] + directionPoint[1] });
+                                    level[nx, ny][(int)GetShiftedRotation(direction, 2)] = true;
+
+                                    nextGen.Add(new[] { nx, ny });
                                 }
                             }
                         }
@@ -303,6 +296,12 @@ namespace Looper
                     if (shapes[x, y] == Shape.None || shapes[x, y] == Shape.X)
                         continue;
 
+                    if (shapes[x, y] == Shape.I)
+                    {
+                        rotations[x, y] = (Rotation)random.Next(2);
+                        return;
+                    }
+
                     var rnd = (Rotation)random.Next(3);
 
                     while (LevelUtil.Equals(shapes[x, y], rnd, solution[x, y]))
@@ -355,6 +354,11 @@ namespace Looper
                 newArray[(i + shift) % array.Length] = array[i];
 
             return newArray;
+        }
+
+        public static bool ContainsArray<T>(this List<T[]> list, T[] array)
+        {
+            return list.Any(arr => arr.SequenceEqual(array));
         }
 
         public static List<T> Clone<T>(this IList<T> listToClone) where T : ICloneable
