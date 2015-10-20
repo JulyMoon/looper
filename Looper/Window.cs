@@ -18,6 +18,7 @@ namespace Looper
         private const double wcoef = 2d / width;
         private const double hcoef = -2d / height;
         private const int size = 50;
+        private const int drawSize = 50;
         private static readonly Game game = new Game();
         private static int wpadding;
         private static int hpadding;
@@ -78,8 +79,8 @@ namespace Looper
 
         private static void SetNewLevel()
         {
-            wpadding = (width - size * game.Width) / 2;
-            hpadding = (height - size * game.Height) / 2;
+            wpadding = (width - drawSize * game.Width) / 2;
+            hpadding = (height - drawSize * game.Height) / 2;
             GL.Color4(game.IsSolved() ? Color.Orange : Color.White);
         }
 
@@ -113,8 +114,8 @@ namespace Looper
 
                 if (x >= 0 && y >= 0)
                 {
-                    x /= size;
-                    y /= size;
+                    x /= drawSize;
+                    y /= drawSize;
 
                     if (x < game.Width && y < game.Height)
                         game.Rotate(x, y);
@@ -136,7 +137,7 @@ namespace Looper
             GL.LoadIdentity();
             GL.Translate(wpadding * wcoef, hpadding * hcoef, 0);
 
-            Draw(0, 0, game.Width * size, game.Height * size, leveltexture);
+            Draw(0, 0, game.Width * drawSize, game.Height * drawSize, leveltexture);
 
             for (int x = 0; x < game.Width; x++)
                 for (int y = 0; y < game.Height; y++)
@@ -150,7 +151,7 @@ namespace Looper
             var shape = game.GetShape(x, y);
 
             if (shape != Game.Shape.None)
-                Draw(x * size, y * size, size, size, GetTexture(shape, game.GetRotation(x, y)));
+                Draw(x * drawSize, y * drawSize, drawSize, drawSize, GetTexture(shape, game.GetRotation(x, y)));
         }
 
         private static void Draw(int x, int y, int w, int h, int texture)

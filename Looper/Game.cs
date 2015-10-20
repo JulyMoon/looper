@@ -299,7 +299,7 @@ namespace Looper
                     if (shapes[x, y] == Shape.I)
                     {
                         rotations[x, y] = (Rotation)random.Next(2);
-                        return;
+                        continue;
                     }
 
                     var rnd = (Rotation)random.Next(3);
