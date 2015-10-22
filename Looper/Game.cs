@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing.Printing;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Threading;
 
 namespace Looper
 {
@@ -12,6 +15,9 @@ namespace Looper
             private int width;
             private int height;
             private bool[,][] level;
+            private bool[,] populated;
+
+            private int maxFill => width * height * 4 - width * 2 - height * 2;
 
             public static bool[] GetItemArray(Shape shape = Shape.None, Rotation rotation = Rotation.Up)
             {
@@ -44,13 +50,12 @@ namespace Looper
 
             private double GetFillPercentage()
             {
-                int max = width * height * 4 - width * 2 - height * 2;
                 int count = 0;
                 for (int x = 0; x < width; x++)
                     for (int y = 0; y < height; y++)
                         count += level[x, y].Count(stick => stick);
 
-                return (double)count / max;
+                return (double)count / maxFill;
             }
 
             public static Rotation GetShiftedRotation(Rotation r, int shift)
@@ -99,36 +104,43 @@ namespace Looper
                 throw new Exception();
             }
 
-            private void Populate(int startx, int starty, double maxfill)
+            private void Populate(int startx, int starty, double limit)
             {
+                int count;
+                var beforePopulating = (bool[,])populated.Clone();
                 do
                 {
+                    populated = (bool[,])beforePopulating.Clone();
                     var currentGen = new List<int[]> { new[] { startx, starty } };
                     var nextGen = new List<int[]>();
-                    var populated = new List<int[]>();
+                    count = 0;
 
                     while (currentGen.Count > 0)
                     {
                         foreach (var point in currentGen)
                         {
-                            if (populated.ContainsArray(point))
+                            if (populated[point[0], point[1]])
                                 continue;
 
-                            populated.Add(point);
+                            populated[point[0], point[1]] = true;
 
                             foreach (var direction in GetValidDirections(point[0], point[1]))
                             {
                                 if (level[point[0], point[1]][(int)direction])
                                     continue;
 
-                                if (GetFillPercentage() < maxfill && Random(0.5))
+                                if ((double)count / maxFill < limit && Random(0.5))
                                 {
                                     var directionPoint = GetDirectionPoint(direction);
                                     int nx = point[0] + directionPoint[0];
                                     int ny = point[1] + directionPoint[1];
 
+                                    if (!level[point[0], point[1]][(int)direction])
+                                        count++;
                                     level[point[0], point[1]][(int)direction] = true;
 
+                                    if (!level[nx, ny][(int)GetShiftedRotation(direction, 2)])
+                                        count++;
                                     level[nx, ny][(int)GetShiftedRotation(direction, 2)] = true;
 
                                     nextGen.Add(new[] { nx, ny });
@@ -139,14 +151,15 @@ namespace Looper
                         currentGen = nextGen.Clone();
                         nextGen.Clear();
                     }
-                } while (level[startx, starty].SequenceEqual(GetItemArray()));
+                } while (count == 0);
             }
 
             public void GetRandomLevel(out int width_, out int height_, out Shape[,] shapes, out Rotation[,] solution)
             {
-                width = 5;//random.Next(4, 6);
-                height = 7;//random.Next(5, 8);
+                width = 7;//random.Next(4, 6);
+                height = 13;//random.Next(5, 8);
                 
+                populated = new bool[width, height];
                 level = new bool[width, height][];
                 for (int x = 0; x < width; x++)
                     for (int y = 0; y < height; y++)
@@ -155,17 +168,53 @@ namespace Looper
                 int bx, by;
                 GetRandomBorderCoordinates(out bx, out by);
 
-                Populate(bx, by, 0.5);
+                Populate(bx, by, 1);
 
                 ArrayLevelToSolvedShapes(out shapes, out solution);
                 width_ = width;
                 height_ = height;
             }
 
-            private static List<Rotation> Opposite(List<Rotation> rotations)
+            private List<Rotation> GetEmptySides()
             {
-                return MyExtensions.GetValues<Rotation>().Where(rotation => !rotations.Contains(rotation)).ToList();
-            }
+                var emptySides = new List<Rotation>();
+                bool up = false;
+                bool down = false;
+                bool left = false;
+                bool right = false;
+
+                for (int x = 0; x < width; x++)
+                {
+                    if (level[x, 0].Any(stick => stick))
+                        up = true;
+
+                    if (level[x, height - 1].Any(stick => stick))
+                        down = true;
+                }
+
+                for (int y = 0; y < height; y++)
+                {
+                    if (level[0, y].Any(stick => stick))
+                        left = true;
+
+                    if (level[width - 1, y].Any(stick => stick))
+                        right = true;
+                }
+
+                if (!up)
+                    emptySides.Add(Rotation.Up);
+
+                if (!down)
+                    emptySides.Add(Rotation.Down);
+
+                if (!left)
+                    emptySides.Add(Rotation.Left);
+
+                if (!right)
+                    emptySides.Add(Rotation.Right);
+
+                return emptySides;
+            } 
 
             private static bool Random(double chance)
             {
@@ -233,17 +282,6 @@ namespace Looper
                 rotations[x, y] = LevelUtil.GetShiftedRotation(rotations[x, y], 1);
         }
 
-        /*private static bool Equals(Shape shape, Rotation a, Rotation b)
-        {
-            if (shape == Shape.X)
-                return true;
-
-            if (shape == Shape.I && ((int)a % 2) == ((int)b % 2))
-                return true;
-
-            return a == b;
-        }*/
-
         public bool IsSolved()
         {
             for (int x = 0; x < Width; x++)
@@ -293,13 +331,14 @@ namespace Looper
             for (int x = 0; x < Width; x++)
                 for (int y = 0; y < Height; y++)
                 {
-                    if (shapes[x, y] == Shape.None || shapes[x, y] == Shape.X)
-                        continue;
-
-                    if (shapes[x, y] == Shape.I)
+                    switch (shapes[x, y])
                     {
-                        rotations[x, y] = (Rotation)random.Next(2);
-                        continue;
+                        case Shape.None:
+                        case Shape.X:
+                            continue;
+                        case Shape.I:
+                            rotations[x, y] = (Rotation)random.Next(2);
+                            continue;
                     }
 
                     var rnd = (Rotation)random.Next(3);
@@ -354,6 +393,20 @@ namespace Looper
                 newArray[(i + shift) % array.Length] = array[i];
 
             return newArray;
+        }
+
+        public static void Print<T>(this List<T> list)
+        {
+            Console.Write("[");
+
+            if (list.Count > 0)
+            {
+                foreach (var element in list.Take(list.Count - 1))
+                    Console.Write(element + ", ");
+                Console.Write(list[list.Count - 1]);
+            }
+
+            Console.WriteLine("]");
         }
 
         public static bool ContainsArray<T>(this List<T[]> list, T[] array)

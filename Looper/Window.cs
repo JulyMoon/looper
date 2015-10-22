@@ -13,8 +13,8 @@ namespace Looper
 {
     class Window : GameWindow
     {
-        private const int width = 400;
-        private const int height = 400;
+        private const int width = 500;
+        private const int height = 700;
         private const double wcoef = 2d / width;
         private const double hcoef = -2d / height;
         private const int size = 50;
