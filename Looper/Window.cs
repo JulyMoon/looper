@@ -19,13 +19,17 @@ namespace Looper
         private const double hcoef = -2d / height;
         private const int size = 50;
         private const int drawSize = 50;
+        private const double rotationDuration = 0.2;
+        private static int rotationFrames;
         private static readonly Game game = new Game();
         private static int wpadding;
         private static int hpadding;
-        private int[,] textures;
+        private int[] textures;
         private int leveltexture;
         private bool prevmdown, prevrdown;
         private int mx, my;
+        private int rotation;
+        private int rotatingx = -1, rotatingy = -1;
 
         public Window() : base(width, height, GraphicsMode.Default, "Looper", GameWindowFlags.FixedWindow) { }
 
@@ -44,11 +48,14 @@ namespace Looper
 
             SetNewLevel();
 
-            GL.ClearColor(Color.Navy);
+            rotationFrames = (int)Math.Round(rotationDuration * TargetUpdateFrequency);
+
+            GL.ClearColor(Color.FromArgb(30, 30, 50));
             GL.Ortho(0, Width, Height, 0, -1, 1);
             GL.Viewport(ClientSize);
             GL.Enable(EnableCap.Texture2D);
             GL.Enable(EnableCap.Blend);
+            GL.Enable(EnableCap.Map2Vertex4);
             GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
         }
 
@@ -57,24 +64,15 @@ namespace Looper
             var bmp = new Bitmap(@"C:\Users\swirly\Desktop\shapes.png");
             int shapes = bmp.Width / size;
 
-            textures = new int[shapes, 4];
+            textures = new int[shapes];
 
             for (int i = 0; i < shapes; i++)
-            {
-                var part = bmp.Clone(new Rectangle(i * size, 0, size, size), bmp.PixelFormat);
-
-                for (int j = 0; j < 4; j++)
-                {
-                    textures[i, j] = LoadTexture((Bitmap)part.Clone());
-                    part.RotateFlip(RotateFlipType.Rotate90FlipNone);
-                }
-            }
-                
+                textures[i] = LoadTexture(bmp.Clone(new Rectangle(i * size, 0, size, size), bmp.PixelFormat));
         }
 
-        private int GetTexture(Game.Shape shape, Game.Rotation rotation)
+        private int GetTexture(Game.Shape shape)
         {
-            return textures[(int)shape - 1, (int)rotation];
+            return textures[(int)shape - 1];
         }
 
         private static void SetNewLevel()
@@ -88,8 +86,19 @@ namespace Looper
         {
             base.OnUpdateFrame(e);
 
-            if (!Focused)
-                return;
+            //if (!Focused)
+            //    return;
+
+            if (rotation > 0)
+                rotation++;
+
+            if (rotation >= rotationFrames)
+            {
+                rotation = 0;
+                rotatingx = -1;
+                rotatingy = -1;
+                GL.Color4(game.IsSolved() ? Color.Orange : Color.White);
+            }
 
             KeyboardState ks = OpenTK.Input.Keyboard.GetState();
             MouseState ms = OpenTK.Input.Mouse.GetCursorState();
@@ -117,10 +126,14 @@ namespace Looper
                     x /= drawSize;
                     y /= drawSize;
 
-                    if (x < game.Width && y < game.Height)
+                    if (x < game.Width && y < game.Height && game.GetShape(x, y) != Game.Shape.None)
+                    {
                         game.Rotate(x, y);
-
-                    GL.Color4(game.IsSolved() ? Color.Orange : Color.White);
+                        rotation++;
+                        rotatingx = x;
+                        rotatingy = y;
+                        GL.Color4(Color.White);
+                    }
                 }
             }
 
@@ -137,7 +150,7 @@ namespace Looper
             GL.LoadIdentity();
             GL.Translate(wpadding * wcoef, hpadding * hcoef, 0);
 
-            Draw(0, 0, game.Width * drawSize, game.Height * drawSize, leveltexture);
+            //Draw(0, 0, game.Width * drawSize, game.Height * drawSize, leveltexture);
 
             for (int x = 0; x < game.Width; x++)
                 for (int y = 0; y < game.Height; y++)
@@ -146,12 +159,24 @@ namespace Looper
             SwapBuffers();
         }
 
+        private static double Smooth(double x)
+        {
+            return (Math.Cos(Math.PI * (x - 1)) + 1) / 2;
+        }
+
         private void DrawItem(int x, int y)
         {
             var shape = game.GetShape(x, y);
 
             if (shape != Game.Shape.None)
-                Draw(x * drawSize, y * drawSize, drawSize, drawSize, GetTexture(shape, game.GetRotation(x, y)));
+            {
+                double angle = ((int)game.GetRotation(x, y) - 1) * Math.PI / 2;
+
+                if (rotatingx == x && rotatingy == y)
+                    angle += (Smooth((double)rotation / rotationFrames) - 1) * Math.PI / 2;
+
+                DrawAngle((x + 0.5) * drawSize, (y + 0.5) * drawSize, drawSize, drawSize, angle, GetTexture(shape));
+            }
         }
 
         private static void Draw(int x, int y, int w, int h, int texture)
@@ -172,6 +197,48 @@ namespace Looper
 
             GL.TexCoord2(0, 1);
             GL.Vertex2(0, h);
+
+            GL.End();
+            GL.PopMatrix();
+        }
+
+        private static void DrawAngle(double x, double y, int w, int h, double angle, int texture)
+        {
+            GL.PushMatrix();
+            GL.Translate(x * wcoef, y * hcoef, 0);
+
+            double w1 = Math.Cos(angle) * h / 2;
+            double h1 = Math.Sin(angle) * h / 2;
+
+            double w2 = Math.Cos(Math.PI / 2 + angle) * w / 2;
+            double h2 = Math.Sin(Math.PI / 2 + angle) * w / 2;
+
+            double x1 = w1 - w2;
+            double y1 = h1 - h2;
+
+            double x2 = w1 + w2;
+            double y2 = h1 + h2;
+
+            double x3 = -w1 + w2;
+            double y3 = -h1 + h2;
+
+            double x4 = -w1 - w2;
+            double y4 = -h1 - h2;
+
+            GL.BindTexture(TextureTarget.Texture2D, texture);
+            GL.Begin(PrimitiveType.Quads);
+
+            GL.TexCoord2(0, 0);
+            GL.Vertex2(x1, y1);
+
+            GL.TexCoord2(1, 0);
+            GL.Vertex2(x2, y2);
+
+            GL.TexCoord2(1, 1);
+            GL.Vertex2(x3, y3);
+
+            GL.TexCoord2(0, 1);
+            GL.Vertex2(x4, y4);
 
             GL.End();
             GL.PopMatrix();

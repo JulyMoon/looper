@@ -129,12 +129,15 @@ namespace Looper
                                 if (level[point[0], point[1]][(int)direction])
                                     continue;
 
+                                var directionPoint = GetDirectionPoint(direction);
+                                int nx = point[0] + directionPoint[0];
+                                int ny = point[1] + directionPoint[1];
+
+                                if (populated[nx, ny])
+                                    continue;
+
                                 if ((double)count / maxFill < limit && Random(0.5))
                                 {
-                                    var directionPoint = GetDirectionPoint(direction);
-                                    int nx = point[0] + directionPoint[0];
-                                    int ny = point[1] + directionPoint[1];
-
                                     if (!level[point[0], point[1]][(int)direction])
                                         count++;
                                     level[point[0], point[1]][(int)direction] = true;
@@ -278,7 +281,7 @@ namespace Looper
 
         public void Rotate(int x, int y)
         {
-            if (shapes[x, y] != Shape.None)
+            if (shapes[x, y] != Shape.None) // this check is actually done by the caller too
                 rotations[x, y] = LevelUtil.GetShiftedRotation(rotations[x, y], 1);
         }
 
@@ -323,7 +326,7 @@ namespace Looper
         {
             levelUtil.GetRandomLevel(out Width, out Height, out shapes, out solution);
             rotations = (Rotation[,])solution.Clone();
-            //Shuffle();
+            Shuffle();
         }
 
         private void Shuffle()
@@ -348,31 +351,6 @@ namespace Looper
 
                     rotations[x, y] = rnd;
                 }
-        }
-
-        public Game(string path)
-        {
-            var lines = File.ReadAllLines(path);
-
-            Width = lines[0].Split('|').Length;
-            Height = lines.Length;
-
-            shapes = new Shape[Width, Height];
-            solution = new Rotation[Width, Height];
-
-            for (int y = 0; y < Height; y++)
-            {
-                var row = lines[y].Split('|');
-                for (int x = 0; x < Width; x++)
-                {
-                    var split = row[x].Split(' ');
-                    shapes[x, y] = (Shape)Int32.Parse(split[0]);
-                    solution[x, y] = (Rotation)Int32.Parse(split[1]);
-                }
-            }
-
-            rotations = (Rotation[,])solution.Clone();
-            Shuffle();
         }
 
         public Game()

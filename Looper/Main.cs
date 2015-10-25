@@ -5,7 +5,7 @@
         public static void Main()
         {
             using (Window w = new Window())
-                w.Run(30);
+                w.Run(60);
         }
     }
 }
