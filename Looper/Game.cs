@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing.Printing;
-using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Threading;
 
 namespace Looper
 {
@@ -77,6 +73,29 @@ namespace Looper
                 }
             }
 
+            private void GetRandomBorderCoordinates(Rotation side, out int x, out int y)
+            {
+                switch (side)
+                {
+                    case Rotation.Up:
+                        x = random.Next(width);
+                        y = 0;
+                        break;
+                    case Rotation.Right:
+                        x = width - 1;
+                        y = random.Next(height);
+                        break;
+                    case Rotation.Down:
+                        x = random.Next(width);
+                        y = height - 1;
+                        break;
+                    default: // left
+                        x = 0;
+                        y = random.Next(height);
+                        break;
+                }
+            }
+
             private void ArrayLevelToSolvedShapes(out Shape[,] shapes, out Rotation[,] solution)
             {
                 shapes = new Shape[width, height];
@@ -106,6 +125,7 @@ namespace Looper
 
             private void Populate(int startx, int starty, double limit)
             {
+                // todo: add exception when all cells around start are already populated
                 int count;
                 var beforePopulating = (bool[,])populated.Clone();
                 do
@@ -159,8 +179,8 @@ namespace Looper
 
             public void GetRandomLevel(out int width_, out int height_, out Shape[,] shapes, out Rotation[,] solution)
             {
-                width = 7;//random.Next(4, 6);
-                height = 13;//random.Next(5, 8);
+                width = 8;//random.Next(4, 6);
+                height = 12;//random.Next(5, 8);
                 
                 populated = new bool[width, height];
                 level = new bool[width, height][];
@@ -168,10 +188,33 @@ namespace Looper
                     for (int y = 0; y < height; y++)
                         level[x, y] = GetItemArray();
 
-                int bx, by;
-                GetRandomBorderCoordinates(out bx, out by);
+                const double targetFill = 1;
+                var emptySides = GetEmptySides();
+                int count = 0;
+                while (emptySides.Count > 0)
+                {
+                    var randomSide = emptySides[random.Next(emptySides.Count)];
+                    int bx, by;
+                    GetRandomBorderCoordinates(randomSide, out bx, out by);
+                    Populate(bx, by, targetFill);
+                    count++;
+                    emptySides = GetEmptySides();
+                }
 
-                Populate(bx, by, 1);
+                Console.Clear();
+                Console.WriteLine("Segments: " + count);
+
+                /*while (GetFillPercentage() < targetFill)
+                {
+                    int ex, ey;
+                    do
+                    {
+                        ex = random.Next(width);
+                        ey = random.Next(height);
+                    } while (level[ex, ey].SequenceEqual(GetItemArray()));
+
+                    Populate(ex, ey, targetFill);
+                }*/
 
                 ArrayLevelToSolvedShapes(out shapes, out solution);
                 width_ = width;

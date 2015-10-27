@@ -19,7 +19,7 @@ namespace Looper
         private const double hcoef = -2d / height;
         private const int size = 50;
         private const int drawSize = 50;
-        private const double rotationDuration = 0.2;
+        private const double rotationDuration = 0.15; // in seconds
         private static int rotationFrames;
         private static readonly Game game = new Game();
         private static int wpadding;
@@ -86,8 +86,8 @@ namespace Looper
         {
             base.OnUpdateFrame(e);
 
-            //if (!Focused)
-            //    return;
+            if (!Focused)
+                return;
 
             if (rotation > 0)
                 rotation++;
@@ -100,8 +100,8 @@ namespace Looper
                 GL.Color4(game.IsSolved() ? Color.Orange : Color.White);
             }
 
-            KeyboardState ks = OpenTK.Input.Keyboard.GetState();
-            MouseState ms = OpenTK.Input.Mouse.GetCursorState();
+            //KeyboardState ks = OpenTK.Input.Keyboard.GetState();
+            var ms = OpenTK.Input.Mouse.GetCursorState();
 
             var p = PointToClient(new Point(ms.X, ms.Y));
             mx = p.X;
@@ -150,7 +150,7 @@ namespace Looper
             GL.LoadIdentity();
             GL.Translate(wpadding * wcoef, hpadding * hcoef, 0);
 
-            //Draw(0, 0, game.Width * drawSize, game.Height * drawSize, leveltexture);
+            Draw(0, 0, game.Width * drawSize, game.Height * drawSize, leveltexture);
 
             for (int x = 0; x < game.Width; x++)
                 for (int y = 0; y < game.Height; y++)
